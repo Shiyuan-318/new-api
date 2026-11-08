@@ -141,6 +141,14 @@ export function filterByEndpointType(
 
 type SortPriceKind = 'input' | 'output' | 'request'
 
+/** Per-model relay stats used by the success-rate and speed sorts. */
+export type ModelPerfStat = {
+  success_rate: number
+  avg_tps: number
+}
+
+export type ModelPerfStatsMap = Map<string, ModelPerfStat>
+
 const PRICE_SORTS: Partial<
   Record<SortOption, { kind: SortPriceKind; dir: 1 | -1 }>
 > = {
@@ -187,11 +195,14 @@ function getSortPrice(
 }
 
 /**
- * Sort models by specified option
+ * Sort models by specified option. `perfStats` carries relay-derived
+ * success-rate / throughput data and is required only by the perf sorts;
+ * models without stats stay last in both perf sorts.
  */
 export function sortModels(
   models: PricingModel[],
-  sortBy: string
+  sortBy: string,
+  perfStats?: ModelPerfStatsMap
 ): PricingModel[] {
   const sorted = [...models]
 
@@ -209,6 +220,20 @@ export function sortModels(
         return Number(priceA === undefined) - Number(priceB === undefined)
       }
       return priceSort.dir * (priceA - priceB)
+    })
+    return sorted
+  }
+
+  if (sortBy === SORT_OPTIONS.SUCCESS_RATE || sortBy === SORT_OPTIONS.SPEED) {
+    const field = sortBy === SORT_OPTIONS.SUCCESS_RATE ? 'success_rate' : 'avg_tps'
+    const stat = new Map(sorted.map((m) => [m, perfStats?.get(m.model_name || '')?.[field]]))
+    sorted.sort((a, b) => {
+      const statA = stat.get(a)
+      const statB = stat.get(b)
+      if (statA === undefined || statB === undefined) {
+        return Number(statA === undefined) - Number(statB === undefined)
+      }
+      return statB - statA
     })
     return sorted
   }
@@ -237,7 +262,8 @@ export function filterAndSortModels(
     endpointType: string
     tag: string
     sortBy: string
-  }
+  },
+  perfStats?: ModelPerfStatsMap
 ): PricingModel[] {
   let result = filterBySearch(models, filters.search)
   result = filterByVendor(result, filters.vendor)
@@ -245,7 +271,7 @@ export function filterAndSortModels(
   result = filterByQuotaType(result, filters.quotaType)
   result = filterByEndpointType(result, filters.endpointType)
   result = filterByTag(result, filters.tag)
-  result = sortModels(result, filters.sortBy)
+  result = sortModels(result, filters.sortBy, perfStats)
 
   return result
 }

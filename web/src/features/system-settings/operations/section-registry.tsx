@@ -20,6 +20,7 @@ import { SystemBehaviorSection } from '../general/system-behavior-section'
 import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
 import { WorkerSettingsSection } from '../integrations/worker-settings-section'
+import { DataArchiveSettingsSection } from '../maintenance/data-archive-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
@@ -134,6 +135,30 @@ const OPERATIONS_SECTIONS = [
             settings['performance_setting.monitor_memory_threshold'] ?? 90,
           'performance_setting.monitor_disk_threshold':
             settings['performance_setting.monitor_disk_threshold'] ?? 95,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'data-archive',
+    titleKey: 'Request Data Archive',
+    build: (settings: OperationsSettings) => (
+      <DataArchiveSettingsSection
+        defaultValues={{
+          'data_archive_setting.enabled':
+            settings['data_archive_setting.enabled'] ?? false,
+          'data_archive_setting.db_type':
+            settings['data_archive_setting.db_type'] ?? 'mysql',
+          'data_archive_setting.dsn':
+            settings['data_archive_setting.dsn'] ?? '',
+          'data_archive_setting.table_name':
+            settings['data_archive_setting.table_name'] ?? 'request_archive',
+          'data_archive_setting.sync_hour':
+            settings['data_archive_setting.sync_hour'] ?? 3,
+          'data_archive_setting.max_body_bytes':
+            settings['data_archive_setting.max_body_bytes'] ?? 65536,
+          'data_archive_setting.max_local_mb':
+            settings['data_archive_setting.max_local_mb'] ?? 512,
         }}
       />
     ),

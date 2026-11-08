@@ -120,6 +120,9 @@ func main() {
 	// 数据看板
 	go model.UpdateQuotaData()
 
+	// 请求输入/输出归档：先落本地，凌晨低峰批量上传到归档数据库
+	go service.StartDataArchiveSyncTask()
+
 	if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" {
 		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_UPDATE_FREQUENCY"))
 		if err != nil {

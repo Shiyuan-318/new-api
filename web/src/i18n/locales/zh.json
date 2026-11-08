@@ -7400,6 +7400,24 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Success Rate: High to Low": "成功率：从高到低",
+    "Speed: Fastest First": "速度：最快优先",
+    "Request Data Archive": "请求数据归档",
+    "Enable request data archive": "启用请求数据归档",
+    "Archive every request's input and output: data is staged locally first, then uploaded to the archive database at the configured off-peak hour every night.": "归档每次请求的输入和输出：数据先暂存在本地，每天凌晨在配置的低峰时间批量上传到归档数据库。",
+    "When enabled, relay request bodies and response bodies are retained for auditing.": "启用后，将保留请求体与响应体内容，用于审计与追溯。",
+    "Archive database type": "归档数据库类型",
+    "Archive database DSN": "归档数据库 DSN",
+    "For SQLite, enter the database file path, e.g. data/archive.db.": "SQLite 请填写数据库文件路径，例如 data/archive.db。",
+    "Archive table name": "归档表名",
+    "The table is created automatically if it does not exist.": "表不存在时会自动创建。",
+    "Upload hour": "上传时间（小时）",
+    "Local hour (0-23) the daily upload runs at. Use a low-traffic hour such as 3 AM.": "每天执行上传的本地时间（0-23）。建议选择凌晨等低峰时段，例如 3 点。",
+    "Max stored body size (bytes)": "单条记录正文上限（字节）",
+    "Request and response bodies are truncated to this size per request (max 512 KB).": "每个请求的请求体/响应体超出该大小时会被截断（最大 512 KB）。",
+    "Local staging limit (MB)": "本地暂存上限（MB）",
+    "When the local staging directory exceeds this size, new data is discarded until the next upload.": "本地暂存目录超过该大小时，将停止写入新数据，等待下次上传释放空间。",
+    "Data archive settings saved": "数据归档设置已保存"
   }
 }

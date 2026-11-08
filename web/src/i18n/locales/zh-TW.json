@@ -7400,6 +7400,24 @@
     "Zhipu": "智譜",
     "Zhipu GLM": "智譜GLM",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Success Rate: High to Low": "Success Rate: High to Low",
+    "Speed: Fastest First": "Speed: Fastest First",
+    "Request Data Archive": "Request Data Archive",
+    "Enable request data archive": "Enable request data archive",
+    "Archive every request's input and output: data is staged locally first, then uploaded to the archive database at the configured off-peak hour every night.": "Archive every request's input and output: data is staged locally first, then uploaded to the archive database at the configured off-peak hour every night.",
+    "When enabled, relay request bodies and response bodies are retained for auditing.": "When enabled, relay request bodies and response bodies are retained for auditing.",
+    "Archive database type": "Archive database type",
+    "Archive database DSN": "Archive database DSN",
+    "For SQLite, enter the database file path, e.g. data/archive.db.": "For SQLite, enter the database file path, e.g. data/archive.db.",
+    "Archive table name": "Archive table name",
+    "The table is created automatically if it does not exist.": "The table is created automatically if it does not exist.",
+    "Upload hour": "Upload hour",
+    "Local hour (0-23) the daily upload runs at. Use a low-traffic hour such as 3 AM.": "Local hour (0-23) the daily upload runs at. Use a low-traffic hour such as 3 AM.",
+    "Max stored body size (bytes)": "Max stored body size (bytes)",
+    "Request and response bodies are truncated to this size per request (max 512 KB).": "Request and response bodies are truncated to this size per request (max 512 KB).",
+    "Local staging limit (MB)": "Local staging limit (MB)",
+    "When the local staging directory exceeds this size, new data is discarded until the next upload.": "When the local staging directory exceeds this size, new data is discarded until the next upload.",
+    "Data archive settings saved": "Data archive settings saved"
   }
 }

@@ -124,3 +124,41 @@ describe('price sorting', () => {
     }
   )
 })
+
+describe('perf sorting', () => {
+  const perfModels = [
+    pricingModel('slow', {}),
+    pricingModel('fast', {}),
+    pricingModel('flaky', {}),
+    pricingModel('no-stats', {}),
+  ]
+  const perfStats = new Map([
+    ['slow', { success_rate: 99.9, avg_tps: 10 }],
+    ['fast', { success_rate: 95, avg_tps: 120 }],
+    ['flaky', { success_rate: 80, avg_tps: 80 }],
+  ])
+
+  test('success rate sorts descending and keeps models without stats last', () => {
+    expect(
+      sortModels(perfModels, SORT_OPTIONS.SUCCESS_RATE, perfStats).map(
+        (m) => m.model_name
+      )
+    ).toEqual(['slow', 'fast', 'flaky', 'no-stats'])
+  })
+
+  test('speed sorts by throughput descending and keeps models without stats last', () => {
+    expect(
+      sortModels(perfModels, SORT_OPTIONS.SPEED, perfStats).map(
+        (m) => m.model_name
+      )
+    ).toEqual(['fast', 'flaky', 'slow', 'no-stats'])
+  })
+
+  test('perf sorts without stats keep the original order', () => {
+    expect(
+      sortModels(perfModels, SORT_OPTIONS.SUCCESS_RATE).map(
+        (m) => m.model_name
+      )
+    ).toEqual(['slow', 'fast', 'flaky', 'no-stats'])
+  })
+})

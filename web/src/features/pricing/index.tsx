@@ -18,9 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
+import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
+import { requireServerSuccess } from '@/lib/server-error-message'
 
 import {
   LoadingSkeleton,
@@ -35,6 +38,10 @@ import {
 import { EXCLUDED_GROUPS, VIEW_MODES } from './constants'
 import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
+import type { ModelPerfStatsMap } from './lib/filters'
+
+/** Hours of relay stats backing the success-rate / speed sorts. */
+const PRICING_SORT_STATS_HOURS = 24
 
 export function Pricing() {
   const { t } = useTranslation()
@@ -53,6 +60,29 @@ export function Pricing() {
     priceRate,
     usdExchangeRate,
   } = usePricingData()
+
+  // One summary for all models powers the success-rate / speed sorts.
+  const perfStatsQuery = useQuery({
+    queryKey: ['perf-metrics-summary-all', PRICING_SORT_STATS_HOURS],
+    queryFn: async () =>
+      requireServerSuccess(
+        await getPerfMetricsSummary(PRICING_SORT_STATS_HOURS)
+      ),
+    enabled: (models?.length ?? 0) > 0,
+    staleTime: 60 * 1000,
+    retry: false,
+  })
+
+  const perfStats = useMemo<ModelPerfStatsMap>(() => {
+    const map: ModelPerfStatsMap = new Map()
+    for (const model of perfStatsQuery.data?.data?.models ?? []) {
+      map.set(model.model_name, {
+        success_rate: model.success_rate,
+        avg_tps: model.avg_tps,
+      })
+    }
+    return map
+  }, [perfStatsQuery.data])
 
   const {
     searchInput,
@@ -81,7 +111,7 @@ export function Pricing() {
     availableTags,
     clearFilters,
     clearSearch,
-  } = useFilters(models || [])
+  } = useFilters(models || [], perfStats)
 
   const handleModelClick = useCallback((modelName: string) => {
     setSelectedModelName(modelName)

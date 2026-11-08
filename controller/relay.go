@@ -80,6 +80,15 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		ws          *websocket.Conn
 	)
 
+	// Data archive capture: wrap the response writer before anything is
+	// written, and snapshot the request body before the relay loop replays it.
+	var archiveWriter *service.ArchiveResponseWriter
+	archiveCapture := service.DataArchiveCaptureEnabled() && relayFormat != types.RelayFormatOpenAIRealtime
+	if archiveCapture {
+		archiveWriter = service.NewArchiveResponseWriter(c.Writer, 0)
+		c.Writer = archiveWriter
+	}
+
 	if relayFormat == types.RelayFormatOpenAIRealtime {
 		var err error
 		ws, err = upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -145,6 +154,14 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		if relayFormat != types.RelayFormatOpenAIRealtime {
 			perfmetrics.RecordRelayResult(c.Request.Context(), relayInfo, resultErr)
+		}
+		if archiveCapture {
+			var responseBody []byte
+			if archiveWriter != nil {
+				responseBody = archiveWriter.Body()
+			}
+			requestBody := service.SnapshotArchiveRequestBody(c, 0)
+			service.CaptureRelayArchive(c, relayInfo, requestBody, responseBody, resultErr == nil)
 		}
 		if recovered != nil {
 			panic(recovered)
