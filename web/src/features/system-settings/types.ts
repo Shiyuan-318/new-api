@@ -395,12 +395,14 @@ export type OperationsSettings = {
   'perf_metrics_setting.bucket_time': 'hour' | 'minute' | '5min'
   'perf_metrics_setting.retention_days': number
   'data_archive_setting.enabled': boolean
+  'data_archive_setting.storage_mode': 'local' | 'database'
   'data_archive_setting.db_type': 'mysql' | 'postgres' | 'sqlite'
   'data_archive_setting.dsn': string
   'data_archive_setting.table_name': string
   'data_archive_setting.sync_hour': number
   'data_archive_setting.max_body_bytes': number
   'data_archive_setting.max_local_mb': number
+  'data_archive_setting.max_file_mb': number
 }
 
 export type SecuritySettings = {

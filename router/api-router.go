@@ -254,6 +254,14 @@ func SetApiRouter(router *gin.Engine) {
 			performanceRoute.GET("/logs", controller.GetLogFiles)
 			performanceRoute.DELETE("/logs", controller.CleanupLogFiles)
 		}
+		dataArchiveRoute := apiRouter.Group("/data_archive")
+		dataArchiveRoute.Use(middleware.RootAuth())
+		{
+			dataArchiveRoute.GET("/status", controller.GetDataArchiveStatus)
+			dataArchiveRoute.GET("/download", controller.DownloadDataArchiveFile)
+			dataArchiveRoute.DELETE("/file", controller.DeleteDataArchiveFile)
+			dataArchiveRoute.DELETE("/all", controller.ClearDataArchive)
+		}
 		ratioSyncRoute := apiRouter.Group("/ratio_sync")
 		ratioSyncRoute.Use(middleware.RootAuth())
 		{

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,8 +27,11 @@ import (
 )
 
 // The archive feature stages every relay request's input/output on the local
-// disk as JSONL and uploads them to a dedicated archive database once a day
-// during off-peak hours. See operation_setting.DataArchiveSetting.
+// disk as JSON volumes (one ~MaxFileMB JSONL volume at a time). With the
+// "database" storage mode a daily off-peak job uploads staged entries to the
+// configured archive database and deletes local files afterwards; with the
+// default "local" mode entries stay on disk and can be downloaded or deleted
+// from the admin settings page. See operation_setting.DataArchiveSetting.
 
 const (
 	dataArchiveDir           = "data/archive"
@@ -35,6 +39,7 @@ const (
 	dataArchiveFileSuffix    = ".jsonl"
 	dataArchiveStateFileName = ".last_sync"
 	dataArchiveBatchSize     = 200
+	dataArchiveVolumeDigits  = 6
 )
 
 type RelayArchiveEntry struct {
@@ -204,7 +209,8 @@ func CaptureRelayArchive(c *gin.Context, relayInfo *relaycommon.RelayInfo, reque
 	entry.ResponseBody = string(responseBody)
 
 	gopool.Go(func() {
-		if err := appendLocalArchive(entry, setting.NormalizedMaxLocalMB()); err != nil {
+		err := appendLocalArchive(entry, setting.NormalizedMaxLocalMB(), setting.NormalizedMaxFileMB())
+		if err != nil {
 			if dataArchiveOverLimit.CompareAndSwap(false, true) {
 				common.SysError(fmt.Sprintf("data archive: stop staging locally: %s", err.Error()))
 			}
@@ -218,7 +224,32 @@ func dataArchiveDirPath() string {
 	return dataArchiveDir
 }
 
-func appendLocalArchive(entry RelayArchiveEntry, maxLocalMB int) error {
+// IsValidDataArchiveFileName guards against path traversal: only volume files
+// matching the archive-*.jsonl naming scheme are accepted by management APIs.
+func IsValidDataArchiveFileName(name string) bool {
+	if !strings.HasPrefix(name, dataArchiveFilePrefix) || !strings.HasSuffix(name, dataArchiveFileSuffix) {
+		return false
+	}
+	body := strings.TrimSuffix(strings.TrimPrefix(name, dataArchiveFilePrefix), dataArchiveFileSuffix)
+	if len(body) != dataArchiveVolumeDigits {
+		return false
+	}
+	for _, r := range body {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func archiveVolumeNumber(name string) (int, error) {
+	body := strings.TrimSuffix(strings.TrimPrefix(name, dataArchiveFilePrefix), dataArchiveFileSuffix)
+	return strconv.Atoi(body)
+}
+
+// appendLocalArchive appends one entry to the current JSON volume file,
+// rolling over to a new volume once the active file reaches MaxFileMB.
+func appendLocalArchive(entry RelayArchiveEntry, maxLocalMB int, maxFileMB int) error {
 	if err := os.MkdirAll(dataArchiveDirPath(), 0755); err != nil {
 		return fmt.Errorf("create archive dir: %w", err)
 	}
@@ -233,7 +264,10 @@ func appendLocalArchive(entry RelayArchiveEntry, maxLocalMB int) error {
 
 	dataArchiveWriteMu.Lock()
 	defer dataArchiveWriteMu.Unlock()
-	fileName := filepath.Join(dataArchiveDirPath(), fmt.Sprintf("%s%s%s", dataArchiveFilePrefix, time.Now().Format("20060102"), dataArchiveFileSuffix))
+	fileName, err := activeArchiveVolumePath(int64(maxFileMB) << 20)
+	if err != nil {
+		return err
+	}
 	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return fmt.Errorf("open archive file: %w", err)
@@ -243,6 +277,37 @@ func appendLocalArchive(entry RelayArchiveEntry, maxLocalMB int) error {
 		return fmt.Errorf("write archive entry: %w", err)
 	}
 	return nil
+}
+
+// activeArchiveVolumePath returns the file to append to. The caller must hold
+// dataArchiveWriteMu. A fresh volume is started when the newest volume is at
+// or beyond maxFileBytes.
+func activeArchiveVolumePath(maxFileBytes int64) (string, error) {
+	entries, err := os.ReadDir(dataArchiveDirPath())
+	if err != nil {
+		return "", err
+	}
+	highest := 0
+	var highestSize int64
+	for _, e := range entries {
+		if e.IsDir() || !IsValidDataArchiveFileName(e.Name()) {
+			continue
+		}
+		num, err := archiveVolumeNumber(e.Name())
+		if err != nil || num <= 0 {
+			continue
+		}
+		if num > highest {
+			if info, err := e.Info(); err == nil {
+				highestSize = info.Size()
+			}
+			highest = num
+		}
+	}
+	if highest > 0 && highestSize < maxFileBytes {
+		return filepath.Join(dataArchiveDirPath(), fmt.Sprintf("%s%0*d%s", dataArchiveFilePrefix, dataArchiveVolumeDigits, highest, dataArchiveFileSuffix)), nil
+	}
+	return filepath.Join(dataArchiveDirPath(), fmt.Sprintf("%s%0*d%s", dataArchiveFilePrefix, dataArchiveVolumeDigits, highest+1, dataArchiveFileSuffix)), nil
 }
 
 func ensureLocalSizeWithinLimit(maxLocalMB int) error {
@@ -279,13 +344,14 @@ func dataArchiveDirSize() (int64, error) {
 
 // StartDataArchiveSyncTask launches the daily off-peak upload loop. It ticks
 // every 10 minutes and uploads pending local archives once per day, when the
-// local hour matches the configured SyncHour.
+// local hour matches the configured SyncHour. Only the "database" storage
+// mode uploads; "local" keeps the volumes on disk.
 func StartDataArchiveSyncTask() {
 	go func() {
 		for {
 			now := time.Now()
 			setting := operation_setting.GetDataArchiveSetting()
-			if setting.Enabled {
+			if setting.Enabled && setting.IsDatabaseStorage() {
 				if now.Hour() == setting.NormalizedSyncHour() {
 					if err := SyncLocalArchivesToDatabase(); err != nil {
 						common.SysError(fmt.Sprintf("data archive sync failed: %s", err.Error()))
@@ -459,4 +525,212 @@ func openArchiveDB(setting *operation_setting.DataArchiveSetting) (*gorm.DB, err
 	default:
 		return nil, fmt.Errorf("unsupported archive database type: %s", setting.DBType)
 	}
+}
+
+// ----------------------------------------------------------------------------
+// Archive management (admin): list, download, delete
+// ----------------------------------------------------------------------------
+
+// ArchiveFileInfo describes one local JSON volume file.
+type ArchiveFileInfo struct {
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"size_bytes"`
+	Entries   int64  `json:"entries"`
+	ModTime   int64  `json:"mod_time"`
+}
+
+// DataArchiveDatabaseStats describes the remote archive table contents.
+type DataArchiveDatabaseStats struct {
+	Table   string `json:"table"`
+	Entries int64  `json:"entries"`
+}
+
+// ListDataArchiveVolumes lists local volume files sorted oldest first, with
+// entry counts.
+func ListDataArchiveVolumes() ([]ArchiveFileInfo, error) {
+	entries, err := os.ReadDir(dataArchiveDirPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []ArchiveFileInfo{}, nil
+		}
+		return nil, err
+	}
+	files := make([]ArchiveFileInfo, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() || !IsValidDataArchiveFileName(e.Name()) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		entryCount := int64(0)
+		if lines, err := countArchiveLines(filepath.Join(dataArchiveDirPath(), e.Name())); err == nil {
+			entryCount = lines
+		}
+		files = append(files, ArchiveFileInfo{
+			Name:      e.Name(),
+			SizeBytes: info.Size(),
+			Entries:   entryCount,
+			ModTime:   info.ModTime().Unix(),
+		})
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	return files, nil
+}
+
+func countArchiveLines(path string) (int64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	var count int64
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) > 0 {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// LoadDataArchiveVolumeJSON reads one volume and returns its entries as a
+// standard JSON array document (the on-disk volume is JSON Lines).
+func LoadDataArchiveVolumeJSON(name string) ([]byte, error) {
+	if !IsValidDataArchiveFileName(name) {
+		return nil, fmt.Errorf("invalid archive file name")
+	}
+	data, err := os.ReadFile(filepath.Join(dataArchiveDirPath(), name))
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]RelayArchiveEntry, 0, 1024)
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		var entry RelayArchiveEntry
+		if err := json.Unmarshal(line, &entry); err != nil {
+			// Skip corrupted lines instead of failing the whole volume.
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	out, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeleteDataArchiveVolume removes one local volume file by name.
+func DeleteDataArchiveVolume(name string) error {
+	if !IsValidDataArchiveFileName(name) {
+		return fmt.Errorf("invalid archive file name")
+	}
+	dataArchiveWriteMu.Lock()
+	defer dataArchiveWriteMu.Unlock()
+	return os.Remove(filepath.Join(dataArchiveDirPath(), name))
+}
+
+// DeleteAllDataArchiveVolumes removes every local volume file.
+func DeleteAllDataArchiveVolumes() error {
+	dataArchiveWriteMu.Lock()
+	defer dataArchiveWriteMu.Unlock()
+	entries, err := os.ReadDir(dataArchiveDirPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var firstErr error
+	for _, e := range entries {
+		if e.IsDir() || !IsValidDataArchiveFileName(e.Name()) {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dataArchiveDirPath(), e.Name())); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// GetDataArchiveDatabaseStats connects to the configured archive database and
+// reports the row count of the archive table.
+func GetDataArchiveDatabaseStats() (*DataArchiveDatabaseStats, error) {
+	setting := operation_setting.GetDataArchiveSetting()
+	db, err := openArchiveDB(setting)
+	if err != nil {
+		return nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = sqlDB.Close() }()
+	tableName := setting.NormalizedTableName()
+	if err := db.Table(tableName).AutoMigrate(&RequestArchive{}); err != nil {
+		return nil, fmt.Errorf("migrate archive table: %w", err)
+	}
+	var count int64
+	if err := db.Table(tableName).Count(&count).Error; err != nil {
+		return nil, err
+	}
+	return &DataArchiveDatabaseStats{Table: tableName, Entries: count}, nil
+}
+
+// DeleteDataArchiveDatabaseEntries deletes archived rows older than beforeTs
+// (0 deletes everything) and returns the number of deleted rows.
+func DeleteDataArchiveDatabaseEntries(beforeTs int64) (int64, error) {
+	setting := operation_setting.GetDataArchiveSetting()
+	db, err := openArchiveDB(setting)
+	if err != nil {
+		return 0, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = sqlDB.Close() }()
+	tableName := setting.NormalizedTableName()
+	query := db.Table(tableName)
+	if beforeTs > 0 {
+		query = query.Where("created_at < ?", beforeTs)
+	}
+	result := query.Delete(&RequestArchive{})
+	return result.RowsAffected, result.Error
+}
+
+// ExportDataArchiveDatabaseEntries queries archived rows (created_at older
+// than beforeTs when given, capped by limit) and returns them as a JSON array
+// document.
+func ExportDataArchiveDatabaseEntries(beforeTs int64, limit int) ([]byte, error) {
+	setting := operation_setting.GetDataArchiveSetting()
+	db, err := openArchiveDB(setting)
+	if err != nil {
+		return nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = sqlDB.Close() }()
+	tableName := setting.NormalizedTableName()
+	query := db.Table(tableName).Order("created_at ASC")
+	if beforeTs > 0 {
+		query = query.Where("created_at < ?", beforeTs)
+	}
+	if limit <= 0 || limit > 100000 {
+		limit = 100000
+	}
+	var rows []RequestArchive
+	if err := query.Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out, err := json.MarshalIndent(rows, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }

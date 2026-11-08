@@ -64,12 +64,14 @@ const defaultOperationsSettings: OperationsSettings = {
   'perf_metrics_setting.bucket_time': 'hour',
   'perf_metrics_setting.retention_days': 0,
   'data_archive_setting.enabled': false,
+  'data_archive_setting.storage_mode': 'local',
   'data_archive_setting.db_type': 'mysql',
   'data_archive_setting.dsn': '',
   'data_archive_setting.table_name': 'request_archive',
   'data_archive_setting.sync_hour': 3,
   'data_archive_setting.max_body_bytes': 65536,
   'data_archive_setting.max_local_mb': 512,
+  'data_archive_setting.max_file_mb': 50,
 }
 
 export function OperationsSettings() {

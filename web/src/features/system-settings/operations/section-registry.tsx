@@ -147,6 +147,8 @@ const OPERATIONS_SECTIONS = [
         defaultValues={{
           'data_archive_setting.enabled':
             settings['data_archive_setting.enabled'] ?? false,
+          'data_archive_setting.storage_mode':
+            settings['data_archive_setting.storage_mode'] ?? 'local',
           'data_archive_setting.db_type':
             settings['data_archive_setting.db_type'] ?? 'mysql',
           'data_archive_setting.dsn':
@@ -159,6 +161,8 @@ const OPERATIONS_SECTIONS = [
             settings['data_archive_setting.max_body_bytes'] ?? 65536,
           'data_archive_setting.max_local_mb':
             settings['data_archive_setting.max_local_mb'] ?? 512,
+          'data_archive_setting.max_file_mb':
+            settings['data_archive_setting.max_file_mb'] ?? 50,
         }}
       />
     ),
