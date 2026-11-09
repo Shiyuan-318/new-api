@@ -563,6 +563,8 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   // Logs
   'log.clear': 'Cleared historical logs',
   'log.cleanup_start': 'Log cleanup task started.',
+  // AI admin assistant: tool name plus a human-readable change summary
+  'ai_admin.execute': 'AI Admin executed {{tool}}: {{summary}}',
   // Generic middleware fallback
   generic: '{{method}} {{route}}',
 }

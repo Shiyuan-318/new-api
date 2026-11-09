@@ -268,6 +268,12 @@ func SetApiRouter(router *gin.Engine) {
 			ratioSyncRoute.GET("/channels", controller.GetSyncableChannels)
 			ratioSyncRoute.POST("/fetch", controller.FetchUpstreamRatios)
 		}
+		aiAdminRoute := apiRouter.Group("/ai-admin")
+		aiAdminRoute.Use(middleware.RootAuth())
+		{
+			aiAdminRoute.GET("/tools", controller.GetAiAdminTools)
+			aiAdminRoute.POST("/execute", controller.ExecuteAiAdminTool)
+		}
 		taskPluginRoute := apiRouter.Group("/plugin/task")
 		taskPluginRoute.Use(middleware.RootAuth())
 		{

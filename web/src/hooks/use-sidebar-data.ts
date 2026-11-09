@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   Activity,
+  Bot,
   Box,
   ClipboardList,
   CreditCard,
@@ -167,6 +168,12 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             title: t('Task Plugins'),
             url: '/task-plugins',
             icon: PlugZap,
+            requiredRole: ROLE.SUPER_ADMIN,
+          },
+          {
+            title: t('AI Admin'),
+            url: '/ai-admin',
+            icon: Bot,
             requiredRole: ROLE.SUPER_ADMIN,
           },
           {

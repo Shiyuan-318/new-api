@@ -174,6 +174,16 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/ratio_sync/channels":              accessTokenScopeRule("option:read"),
 	"POST /api/ratio_sync/fetch":                accessTokenScopeRule("option:write"),
 
+	// router/api-router.go: /api/data_archive, /api/ai-admin
+	// Session-only: these endpoints expose or mutate sensitive gateway data
+	// and are intentionally unavailable to personal access tokens.
+	"GET /api/data_archive/status":   accessTokenSessionRule,
+	"GET /api/data_archive/download": accessTokenSessionRule,
+	"DELETE /api/data_archive/file":  accessTokenSessionRule,
+	"DELETE /api/data_archive/all":   accessTokenSessionRule,
+	"GET /api/ai-admin/tools":        accessTokenSessionRule,
+	"POST /api/ai-admin/execute":     accessTokenSessionRule,
+
 	// router/api-router.go: /api/performance, /api/system-task, /api/system-info
 	"GET /api/performance/stats":                   accessTokenScopeRule("ops:read"),
 	"DELETE /api/performance/disk_cache":           accessTokenScopeRule("ops:write"),
