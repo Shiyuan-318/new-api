@@ -228,7 +228,7 @@ function useWideScreen() {
 test('changing built-in providers updates server-provided URL placeholders without replacing the draft address', async () => {
   const user = userEvent.setup()
   render(<ConfigurationHarness />)
-  await user.click(screen.getByRole('option', { name: /^DeepSeek / }))
+  await user.click(screen.getByRole('option', { name: 'DeepSeek Built-in #43' }))
   const address = screen.getByRole('textbox', { name: 'Base URL' })
   await waitFor(() =>
     expect(address).toHaveAttribute(
@@ -1349,7 +1349,9 @@ test('quick options show only applicable shortcuts when the provider changes', a
   ).toHaveAccessibleName(/Incomplete/)
 
   await user.click(screen.getByRole('button', { name: 'Change provider' }))
-  await user.click(screen.getByRole('option', { name: /^DeepSeek / }))
+  await user.click(
+    screen.getByRole('option', { name: 'DeepSeek Built-in #43' })
+  )
   quick = within(screen.getByRole('group', { name: 'Quick options' }))
   expect(quick.getAllByRole('switch')).toHaveLength(4)
   expect(

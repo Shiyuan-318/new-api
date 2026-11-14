@@ -7480,6 +7480,7 @@
     "Show me the current homepage HTML": "查看当前主页 HTML",
     "Write a simple welcome page for the homepage": "为主页写一个简洁的欢迎页面",
     "AI Admin executed {{tool}}: {{summary}}": "AI 管理执行 {{tool}}：{{summary}}",
-    "Native function calling": "原生工具调用"
+    "Native function calling": "原生工具调用",
+    "Use the free DeepSeek web chat with account sign-in and proof-of-work": "通过账号登录与工作量证明接入免费的 DeepSeek 网页对话"
   }
 }

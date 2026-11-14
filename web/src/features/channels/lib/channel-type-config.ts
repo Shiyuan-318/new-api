@@ -132,6 +132,16 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'deepseek-chat,deepseek-coder',
     },
   },
+  64: {
+    id: 64,
+    name: CHANNEL_TYPES[64],
+    icon: 'deepseek',
+    hints: {
+      key: 'email:password or userToken, one per line for multi-account',
+      models: 'deepseek-chat,deepseek-reasoner,deepseek-chat-search,deepseek-reasoner-search',
+      other: 'Leave the base URL as https://chat.deepseek.com',
+    },
+  },
   20: {
     id: 20,
     name: CHANNEL_TYPES[20],

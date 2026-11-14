@@ -79,6 +79,7 @@ export const CHANNEL_TYPES = {
   41: 'Vertex AI',
   42: 'Mistral',
   43: 'DeepSeek',
+  64: 'DeepSeek Web',
   44: 'MokaAI',
   45: 'VolcEngine',
   46: 'Baidu V2',
@@ -149,6 +150,10 @@ export const CHANNEL_PROVIDER_PRESENTATION: Partial<
   41: { descriptionKey: 'Access models through Google Cloud Vertex AI' },
   42: { descriptionKey: 'Connect to Mistral AI model services' },
   43: { descriptionKey: 'Connect to DeepSeek model services' },
+  64: {
+    descriptionKey:
+      'Use the free DeepSeek web chat with account sign-in and proof-of-work',
+  },
   44: { descriptionKey: 'Access model services through MokaAI' },
   45: { descriptionKey: 'Connect to Volcengine Ark model services' },
   46: { descriptionKey: 'Access Baidu Qianfan models through the V2 API' },
